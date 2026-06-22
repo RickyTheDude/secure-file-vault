@@ -6,6 +6,7 @@ import KeyModal from '../components/KeyModal.jsx';
 import Header from '../components/Header.jsx';
 import bgAuth from '../assets/background_auth.png';
 import { API_URL } from '../config/apiConfig.js';
+import JitHelpTrigger from '../components/JitHelpTrigger.jsx';
 
 export default function AuthPage({ user, setUser, privateKeyHex, setPrivateKeyHex, status, setStatus }) {
   const [mode, setMode] = useState('login'); // login | register
@@ -69,7 +70,7 @@ export default function AuthPage({ user, setUser, privateKeyHex, setPrivateKeyHe
 
   return (
     <div className="relative min-h-screen bg-gray-50 flex flex-col">
-  <Header title="GhostCloud" />
+      <Header title="GhostCloud" />
       
       {/* Main Content */}
       <main className="flex-1 flex items-center justify-center px-4">
@@ -79,7 +80,15 @@ export default function AuthPage({ user, setUser, privateKeyHex, setPrivateKeyHe
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4">
               <img src="/ghost.svg" alt="GhostCloud logo" className="w-16 h-16" />
             </div>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-2">GhostCloud</h2>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-2 relative flex items-center justify-center gap-1">
+              <span>GhostCloud</span>
+              <JitHelpTrigger
+                storageKey="jit_auth_welcome"
+                title="Zero-Knowledge Cloud"
+                description="Welcome! GhostCloud secures your files in the browser using AES-GCM and RSA keys before they leave your device. No one, not even the server, can read them without your private key."
+                placement="bottom"
+              />
+            </h2>
             <p className="text-gray-600">Your secure cloud storage solution</p>
           </div>
 
@@ -171,8 +180,14 @@ export default function AuthPage({ user, setUser, privateKeyHex, setPrivateKeyHe
                   </div>
 
                   <div>
-                    <label htmlFor="privateKey" className="block text-sm font-medium text-gray-700 mb-1">
-                      Private Key
+                    <label htmlFor="privateKey" className="block text-sm font-medium text-gray-700 mb-1 relative flex items-center gap-1">
+                      <span>Private Key</span>
+                      <JitHelpTrigger
+                        storageKey="jit_auth_private_key"
+                        title="Your Client Private Key"
+                        description="This hex key is generated locally in your browser. It is used to decrypt your storage. Keep it stored safely; we never save it on the server."
+                        placement="top"
+                      />
                     </label>
                     <textarea
                       id="privateKey"

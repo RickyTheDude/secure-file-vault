@@ -15,6 +15,7 @@ import {
   concatUint8Arrays,
 } from './utils/crypto.js';
 import { API_URL } from './config/apiConfig.js';
+import JitHelpTrigger from './components/JitHelpTrigger.jsx';
 
 // Helper to handle file type icons (richer and accessible)
 // Returns a small JSX span with an emoji (works well cross-platform) and an accessible label.
@@ -29,7 +30,6 @@ const getFileIcon = (filename = '') => {
     doc: { icon: '📝', label: 'Word document' },
     epub: { icon: '📖', label: 'E-Book' },
     mobi: { icon: '📖', label: 'E-Book' },
-    rtf: { icon: '📖', label: 'E-Book' },
     pdf: { icon: '📄', label: 'PDF document' },
     txt: { icon: '📄', label: 'Text file' },
     rtf: { icon: '📄', label: 'Rich Text Format' },
@@ -432,8 +432,16 @@ function FileView({ user, privateKeyHex, setStatus }) {
   return (
     <div className="space-y-8">
       {/* Upload Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Upload New File</h3>
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 scroll-mt-24">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+          <span>Upload New File</span>
+          <JitHelpTrigger
+            storageKey="jit_upload_section"
+            title="Secure Upload"
+            description="Drag & drop or select a file. We will generate a one-time AES-GCM key, encrypt the file, and then encrypt that key with your RSA public key before sending to the server."
+            placement="bottom-right"
+          />
+        </h3>
         <form onSubmit={handleEncryptAndUpload} className="w-full">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Left Side - Drag & Drop Area */}
@@ -516,9 +524,17 @@ function FileView({ user, privateKeyHex, setStatus }) {
       </div>
 
       {/* Files Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 scroll-mt-24">
         <div className="flex justify-between items-center mb-6">
-          <h3 className="text-lg font-semibold text-gray-900">Your Files</h3>
+          <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+            <span>Your Files</span>
+            <JitHelpTrigger
+              storageKey="jit_files_section"
+              title="Encrypted Files Vault"
+              description="All stored files are encrypted. Click any file to download and decrypt it using your private key. Hover over grids or check list rows to perform quick actions like Delete."
+              placement="bottom-right"
+            />
+          </h3>
           <div className="flex items-center gap-2">
             {/* View mode toggle */}
             <div className="flex border border-gray-300 rounded-lg overflow-hidden">
@@ -570,6 +586,7 @@ function FileView({ user, privateKeyHex, setStatus }) {
             
             {/* Refresh button */}
             <button
+              id="onboarding-refresh-btn"
               type="button"
               onClick={fetchFiles}
               aria-label="Refresh files"
@@ -594,6 +611,14 @@ function FileView({ user, privateKeyHex, setStatus }) {
                 <path d="M20.49 15a9 9 0 01-14.36 3.36L1 14" />
               </svg>
             </button>
+
+            {/* JIT help for layout & refresh actions */}
+            <JitHelpTrigger
+              storageKey="jit_layout_controls"
+              title="Vault Controls"
+              description="Use the Card/Compact toggle to change layout options. Use the Sync button to manually refresh the directory cache from the server database."
+              placement="bottom-left"
+            />
           </div>
         </div>
         

@@ -53,14 +53,29 @@ export default function KeyModal({ open, keyHex, onClose }) {
 
         <div className="p-6">
           <div className="mb-4">
-            <p className="text-black-600 font-semibold text-center text-sm tracking-wide mb-4">
+            <p className="text-gray-700 font-semibold text-center text-sm tracking-wide mb-4">
               Here's your Private Key
             </p>
+            
+            {/* Security Banner */}
+            <div className="mb-5 p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 text-sm flex items-start gap-3 shadow-xs">
+              <svg className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <div>
+                <p className="font-semibold mb-1">Important: Store this key safely!</p>
+                <p className="text-amber-800 leading-relaxed text-xs">
+                  This key is generated in your browser and is <strong>never sent to the server</strong>. You must copy or download this key and keep it safe (e.g., in a password manager). 
+                  You will need it every time you log in to decrypt your files. <strong>It cannot be recovered if lost and will not be shown a second time.</strong>
+                </p>
+              </div>
+            </div>
+
             <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
               <textarea
                 ref={textareaRef}
                 readOnly
-                className="w-full h-64 font-mono text-xs bg-transparent border-none resize-none focus:outline-none text-gray-700"
+                className="w-full h-48 font-mono text-xs bg-transparent border-none resize-none focus:outline-none text-gray-700"
                 value={keyHex}
                 aria-label="Private key"
               />
