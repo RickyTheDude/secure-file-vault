@@ -5,5 +5,5 @@
  * Change the SERVER_PORT if needed (e.g., use 5001 on macOS if port 5000 is reserved)
  */
 
-// Use relative API path so Nginx in the client container proxies to the server
-export const API_URL = '/api';
+// Use VITE_API_URL environment variable if present, otherwise default to relative '/api'
+export const API_URL = import.meta.env.VITE_API_URL || '/api';
