@@ -130,6 +130,8 @@ const getFileLabel = (filename = '', mime = '') => {
 function FileView({ user, privateKeyHex, setStatus }) {
   const [files, setFiles] = useState([]);
   const [fileToUpload, setFileToUpload] = useState(null);
+  const [uploadStatus, setUploadStatus] = useState(null);
+  // null or { stage: 'encrypting' | 'uploading' | 'finalizing', progress: number, xhr: XMLHttpRequest | null }
   const [isDragOver, setIsDragOver] = useState(false);
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
 
@@ -173,6 +175,12 @@ function FileView({ user, privateKeyHex, setStatus }) {
     }
   };
 
+  const handleCancelUpload = () => {
+    if (uploadStatus && uploadStatus.xhr) {
+      uploadStatus.xhr.abort();
+    }
+  };
+
   const handleEncryptAndUpload = async (e) => {
     e.preventDefault();
     if (!fileToUpload) return alert('Please select a file');
@@ -189,8 +197,9 @@ function FileView({ user, privateKeyHex, setStatus }) {
       toast.warning('Large file detected. This may take a while and use significant memory.', { autoClose: 5000 });
     }
 
-  const uploadToastId = `upload-${fileToUpload?.name || Date.now()}`;
-  toast.info('Encrypting file and metadata...', { autoClose: 10000, toastId: uploadToastId });
+    setUploadStatus({ stage: 'encrypting', progress: 0, xhr: null });
+    const uploadToastId = `upload-${fileToUpload?.name || Date.now()}`;
+    toast.info('Encrypting file and metadata...', { autoClose: 10000, toastId: uploadToastId });
     try {
       const publicKey = await importRsaPublicKeyFromHexSpki(user.publicKey);
       const fileBuffer = await fileToUpload.arrayBuffer();
@@ -224,40 +233,67 @@ function FileView({ user, privateKeyHex, setStatus }) {
       const encryptedKeyHex = arrayBufferToHex(encryptedAesKey);
       const encryptedMetadataHex = arrayBufferToHex(fullEncryptedMetadata);
 
-      toast.info('Uploading file...', { autoClose: 5000, toastId: uploadToastId });
-      const res = await fetch(`${API_URL}/file/${user.userId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/octet-stream',
-          'X-Encrypted-Key': encryptedKeyHex,
-          'X-Encrypted-Metadata': encryptedMetadataHex,
-        },
-        body: payload,
+      // Upload using XMLHttpRequest to report progress
+      const xhr = new XMLHttpRequest();
+      setUploadStatus({ stage: 'uploading', progress: 0, xhr });
+
+      await new Promise((resolve, reject) => {
+        xhr.open('POST', `${API_URL}/file/${user.userId}`);
+        xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+        xhr.setRequestHeader('X-Encrypted-Key', encryptedKeyHex);
+        xhr.setRequestHeader('X-Encrypted-Metadata', encryptedMetadataHex);
+
+        xhr.upload.addEventListener('progress', (event) => {
+          if (event.lengthComputable) {
+            const pct = Math.round((event.loaded / event.total) * 100);
+            if (pct >= 100) {
+              setUploadStatus(prev => prev ? { ...prev, stage: 'finalizing', progress: 100 } : null);
+            } else {
+              setUploadStatus(prev => prev ? { ...prev, progress: pct } : null);
+            }
+          }
+        });
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve();
+          } else {
+            let errorMessage = 'Upload failed';
+            if (xhr.status === 413) {
+              errorMessage = 'File too large for server. Try a smaller file or contact administrator.';
+            } else {
+              try {
+                const errorData = JSON.parse(xhr.responseText);
+                errorMessage = errorData.error || errorMessage;
+              } catch (jsonError) {
+                errorMessage = `Server error (${xhr.status}): ${xhr.statusText || 'Unknown error'}`;
+              }
+            }
+            reject(new Error(errorMessage));
+          }
+        };
+
+        xhr.onerror = () => reject(new Error('Network connection error. Please try again.'));
+        xhr.onabort = () => reject(new Error('Upload aborted.'));
+        xhr.ontimeout = () => reject(new Error('Upload request timed out.'));
+
+        xhr.send(payload);
       });
 
-      if (!res.ok) {
-        let errorMessage = 'Upload failed';
-        
-        // Handle different error types
-        if (res.status === 413) {
-          errorMessage = 'File too large for server. Try a smaller file or contact administrator.';
-        } else {
-          try {
-            const errorData = await res.json();
-            errorMessage = errorData.error || errorMessage;
-          } catch (jsonError) {
-            // Server returned HTML error page instead of JSON
-            errorMessage = `Server error (${res.status}): ${res.statusText || 'Unknown error'}`;
-          }
-        }
-        
-        throw new Error(errorMessage);
-      }
       toast.dismiss(uploadToastId);
       toast.success('File uploaded successfully.', { autoClose: 3000 });
+      setFileToUpload(null);
       fetchFiles();
     } catch (err) {
-      toast.error(`Error: ${err.message}`);
+      if (err.message === 'Upload aborted.') {
+        toast.dismiss(uploadToastId);
+        toast.info('Upload cancelled.', { autoClose: 3000 });
+      } else {
+        toast.dismiss(uploadToastId);
+        toast.error(`Error: ${err.message}`);
+      }
+    } finally {
+      setUploadStatus(null);
     }
   };
 
@@ -432,7 +468,70 @@ function FileView({ user, privateKeyHex, setStatus }) {
   return (
     <div className="space-y-8">
       {/* Upload Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 scroll-mt-24">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 scroll-mt-24 relative overflow-hidden">
+        {uploadStatus && (
+          <div className="absolute inset-0 bg-white/95 backdrop-blur-xs flex flex-col items-center justify-center z-20 transition-all duration-300">
+            <div className="relative flex items-center justify-center mb-4">
+              {/* Outer circle track */}
+              <svg className="w-28 h-28 transform -rotate-90">
+                <circle
+                  cx="56"
+                  cy="56"
+                  r="48"
+                  className="stroke-gray-100"
+                  strokeWidth="6"
+                  fill="transparent"
+                />
+                {/* Progress circle */}
+                <circle
+                  cx="56"
+                  cy="56"
+                  r="48"
+                  className={`${
+                    uploadStatus.stage === 'encrypting'
+                      ? 'stroke-slate-400 animate-pulse'
+                      : uploadStatus.stage === 'finalizing'
+                      ? 'stroke-green-500 animate-pulse'
+                      : 'stroke-indigo-600'
+                  } transition-all duration-300 ease-out`}
+                  strokeWidth="6"
+                  fill="transparent"
+                  strokeDasharray={2 * Math.PI * 48}
+                  strokeDashoffset={
+                    uploadStatus.stage === 'encrypting'
+                      ? 2 * Math.PI * 48 * 0.75 // Indeterminate 25% for encryption
+                      : 2 * Math.PI * 48 * (1 - uploadStatus.progress / 100)
+                  }
+                  strokeLinecap="round"
+                />
+              </svg>
+              {/* Center Text */}
+              <div className="absolute flex flex-col items-center justify-center">
+                <span className="text-xl font-bold text-gray-800">
+                  {uploadStatus.stage === 'encrypting' ? '...' : `${uploadStatus.progress}%`}
+                </span>
+              </div>
+            </div>
+            
+            <p className="text-sm font-semibold text-gray-700 text-center px-4">
+              {uploadStatus.stage === 'encrypting' && '🔒 Encrypting file & metadata...'}
+              {uploadStatus.stage === 'uploading' && `📤 Uploading... (${uploadStatus.progress}%)`}
+              {uploadStatus.stage === 'finalizing' && '⚡ Finalizing & securing on server...'}
+            </p>
+            <p className="text-xs text-gray-500 mt-1 max-w-[80%] truncate text-center px-4">
+              {fileToUpload?.name}
+            </p>
+            
+            <button
+              type="button"
+              onClick={handleCancelUpload}
+              className="mt-6 px-4 py-1.5 border border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold rounded-lg shadow-xs hover:shadow-sm transition-all cursor-pointer font-medium"
+            >
+              Cancel Upload
+            </button>
+          </div>
+        )}
+
         <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
           <span>Upload New File</span>
           <JitHelpTrigger
